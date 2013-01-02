@@ -1,2 +1,6 @@
-%h1 Home#index
-%p Find me in app/views/home/index.html.haml
+%h1 Chess!
+#chess
+
+- content_for :javascript_includes do
+  = javascript_include_tag "Math.uuid"
+  = javascript_include_tag "home"
