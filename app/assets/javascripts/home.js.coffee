@@ -103,8 +103,6 @@ class BoardView
       x = parseFloat(elem.attr("x"))
       y = parseFloat(elem.attr("y"))
       new_pos = [BoardView.xReverseScale(x), BoardView.yReverseScale(y)]
-      console.log(board.position_of(d))
-      console.log(new_pos)
       board.move(board.position_of(d), new_pos)
 
       view.update()
@@ -196,11 +194,11 @@ class Board
   capture: (pos) ->
     piece = @at(pos)
     if piece?
-      @pieces.splice(@pieces.indexOf(piece), 1);
+      @model.pieces.splice(@model.pieces.indexOf(piece), 1);
       if piece.color == "white"
-        @captured_whites.push(piece)
+        @model.captured_whites.push(piece)
       else
-        @captured_blacks.push(piece)
+        @model.captured_blacks.push(piece)
     @model.board[pos[0]][pos[1]] = null
     return piece
 
