@@ -2,23 +2,21 @@
 # All this logic will automatically be available in application.js.
 # You can use CoffeeScript in this file: http://jashkenas.github.com/coffee-script/
 
-@piece = (color, type) ->
-  return {
-    id: Math.uuid()
-    type: type
-    color: color
-  }
-
-@pos = (position) ->
-  if typeof(position) != "string"
-    return position
-
+@p = (pos) ->
+  if typeof(pos) != "string"
+    return pos
   columns = "abcdefgh"
-  column = columns.indexOf(position[0].toLowerCase())
-  row = parseInt(position[1]) - 1
+  column = columns.indexOf(pos[0].toLowerCase())
+  row = parseInt(pos[1]) - 1
   if !(row >= 0 and row < 8 and column >= 0 and column < 8)
     console.error("Invalid location " + str)
   return [column, row]
+
+
+class Piece
+  constructor: (@color, @type) ->
+    @id = Math.uuid()
+
 
 class BoardView
   @WHITE_SQUARE_COLOR = "#dddddd"
@@ -54,12 +52,12 @@ class BoardView
     pieces
       .transition()
       .attr("x", (piece) ->
-        position = board.position_of(piece)
-        return BoardView.xScale(position[0])
+        pos = board.position_of(piece)
+        return BoardView.xScale(pos[0])
       )
       .attr("y", (piece) ->
-        position = board.position_of(piece)
-        return BoardView.yScale(position[1])
+        pos = board.position_of(piece)
+        return BoardView.yScale(pos[1])
       )
 
   draw_grid: () ->
@@ -83,12 +81,12 @@ class BoardView
      .attr("xlink:xlink:href", (piece) ->
        "assets/" + piece.color + "-" + piece.type + ".png")
      .attr("x", (piece) ->
-       position = board.position_of(piece)
-       return BoardView.xScale(position[0])
+       pos = board.position_of(piece)
+       return BoardView.xScale(pos[0])
      )
      .attr("y", (piece) ->
-       position = board.position_of(piece)
-       return BoardView.yScale(position[1])
+       pos = board.position_of(piece)
+       return BoardView.yScale(pos[1])
      )
      .attr("class", "piece")
      .attr("width", @size/8)
@@ -100,7 +98,7 @@ class Board
   constructor: (board_data) ->
     @board = board_data
     if !@board?
-      this.setup()
+      @setup()
 
   reset: () ->
     @board = []
@@ -109,41 +107,37 @@ class Board
     @captured_whites = []
     @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
-  add_piece: (piece, position) ->
-    position = pos(position)
-
+  add_piece: (piece, pos) ->
     @pieces.push(piece)
-    @board[position[0]][position[1]] = piece
+    @board[pos[0]][pos[1]] = piece
 
   setup: () ->
-    this.reset()
+    @reset()
 
-    this.add_piece(piece("white", "rook"), pos "a1")
-    this.add_piece(piece("white", "knight"), pos "b1")
-    this.add_piece(piece("white", "bishop"), pos "c1")
-    this.add_piece(piece("white", "queen"), pos "d1")
-    this.add_piece(piece("white", "king"), pos "e1")
-    this.add_piece(piece("white", "bishop"), pos "f1")
-    this.add_piece(piece("white", "knight"), pos "g1")
-    this.add_piece(piece("white", "rook"), pos "h1")
+    @add_piece(new Piece("white", "rook"), p "a1")
+    @add_piece(new Piece("white", "knight"), p "b1")
+    @add_piece(new Piece("white", "bishop"), p "c1")
+    @add_piece(new Piece("white", "queen"), p "d1")
+    @add_piece(new Piece("white", "king"), p "e1")
+    @add_piece(new Piece("white", "bishop"), p "f1")
+    @add_piece(new Piece("white", "knight"), p "g1")
+    @add_piece(new Piece("white", "rook"), p "h1")
 
-    this.add_piece(piece("black", "rook"), pos "a8")
-    this.add_piece(piece("black", "knight"), pos "b8")
-    this.add_piece(piece("black", "bishop"), pos "c8")
-    this.add_piece(piece("black", "queen"), pos "d8")
-    this.add_piece(piece("black", "king"), pos "e8")
-    this.add_piece(piece("black", "bishop"), pos "f8")
-    this.add_piece(piece("black", "knight"), pos "g8")
-    this.add_piece(piece("black", "rook"), pos "h8")
+    @add_piece(new Piece("black", "rook"), p "a8")
+    @add_piece(new Piece("black", "knight"), p "b8")
+    @add_piece(new Piece("black", "bishop"), p "c8")
+    @add_piece(new Piece("black", "queen"), p "d8")
+    @add_piece(new Piece("black", "king"), p "e8")
+    @add_piece(new Piece("black", "bishop"), p "f8")
+    @add_piece(new Piece("black", "knight"), p "g8")
+    @add_piece(new Piece("black", "rook"), p "h8")
 
-    columns = "abcdefgh"
     for i in [0..7]
-      this.add_piece(piece("white", "pawn"), pos("" + columns[i] + "2"))
-      this.add_piece(piece("black", "pawn"), pos("" + columns[i] + "7"))
+      @add_piece(new Piece("white", "pawn"), [i, 1])
+      @add_piece(new Piece("black", "pawn"), [i, 6])
 
-  at: (position) ->
-    position = pos(position)
-    return @board[position[0]][position[1]]
+  at: (pos) ->
+    return @board[pos[0]][pos[1]]
 
   position_of: (piece) ->
     for i in [0..7]
@@ -152,24 +146,20 @@ class Board
           return [i, j]
 
   move: (start_pos, end_pos) ->
-    start_pos = pos(start_pos)
-    end_pos = pos(end_pos)
-
     @capture(end_pos)
     piece = @at(start_pos)
     @board[start_pos[0]][start_pos[1]] = null
     @board[end_pos[0]][end_pos[1]] = piece
 
-  capture: (position) ->
-    position = pos(position)
-    piece = @at(position)
+  capture: (pos) ->
+    piece = @at(pos)
     if piece?
       @pieces.splice(@pieces.indexOf(piece), 1);
       if piece.color == "white"
         @captured_whites.push(piece)
       else
         @captured_blacks.push(piece)
-    @board[position[0]][position[1]] = null
+    @board[pos[0]][pos[1]] = null
     return piece
 
 
