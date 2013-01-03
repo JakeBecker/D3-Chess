@@ -93,7 +93,9 @@ class BoardView
         }
       )
       .on "dragstart", (d) ->
-        $(view.svg[0]).append(d3.select this)  # Move node to end so it's top layer
+        # TODO: This causes pieces to flicker when they're dragged.
+        $svg = $(view.svg[0])
+        $svg.append(d3.select this)  # Move node to end so it's top layer.
       .on "drag", (d) ->
         if board.position_of(d) is null
           return
@@ -191,12 +193,64 @@ class Board
     return null
 
   move: (start_pos, end_pos) ->
-    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1])
+    console.log @is_legal(start_pos, end_pos)
+    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
       @capture(end_pos)
       piece = @at(start_pos)
       @model.board[start_pos[0]][start_pos[1]] = null
       @model.board[end_pos[0]][end_pos[1]] = piece
     @view.update()
+
+  path_is_empty: (path) ->
+    for pos in path
+      console.log(pos)
+      console.log(@at(pos))
+      if @at(pos) != null
+        return false
+    return true
+
+  is_legal: (start_pos, end_pos) ->
+    piece = @at(start_pos)
+    dx = end_pos[0] - start_pos[0]
+    dy = end_pos[1] - start_pos[1]
+    xDir = dx && dx / Math.abs(dx)
+    yDir = dy && dy / Math.abs(dy)
+
+    # Never legal to capture your own piece
+    if @at(end_pos)? and @at(end_pos).color == piece.color
+      return false
+
+    switch piece.type
+      when "knight"
+        return (Math.abs(dx) == 2 && Math.abs(dy) == 1) or (Math.abs(dx) == 1 and Math.abs(dy) == 2)
+
+      when "rook"
+        if dx is not 0 and dy is not 0
+          return false
+
+        path = []
+        i = start_pos[0] + xDir
+        j = start_pos[1] + yDir
+        while not (i == end_pos[0] and j == end_pos[1])
+          path.push [i,j]
+          i += xDir
+          j += yDir
+        return @path_is_empty(path)
+
+      when "bishop"
+        if Math.abs(dx) != Math.abs(dy)
+          return false
+
+        path = []
+        i = start_pos[0] + xDir
+        j = start_pos[1] + yDir
+        while not (i == end_pos[0] and j == end_pos[1])
+          path.push [i,j]
+          i += xDir
+          j += yDir
+        return @path_is_empty(path)
+
+      else return true
 
   capture: (pos) ->
     piece = @at(pos)
