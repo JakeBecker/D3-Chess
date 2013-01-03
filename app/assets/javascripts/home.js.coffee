@@ -114,8 +114,8 @@ class BoardView
     pieces
      .enter()
      .append("svg:image")
-     .attr("xlink:xlink:href", (piece) ->
-       "assets/" + piece.color + "-" + piece.type + ".png")
+     .attr("xlink:href", (piece) ->
+       "assets/" + piece.color + "-" + piece.type + ".svg")
      .attr("x", (piece) ->
        pos = board.position_of(piece)
        return BoardView.xScale(pos[0])
