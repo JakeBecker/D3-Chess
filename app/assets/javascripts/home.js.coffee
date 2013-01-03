@@ -40,7 +40,7 @@ class BoardView
 
   update: () ->
     pieces =  @svg.selectAll(".piece")
-      .data(@board.pieces, (piece) -> return piece.id)
+      .data(@board.model.pieces, (piece) -> return piece.id)
 
     pieces
       .exit()
@@ -61,8 +61,8 @@ class BoardView
       )
 
   draw_grid: () ->
-    for i in [0..8]
-      for j in [0..8]
+    for i in [0..7]
+      for j in [0..7]
         color = if (i + j) % 2 == 0 then BoardView.BLACK_SQUARE_COLOR else BoardView.WHITE_SQUARE_COLOR
         @svg.append("svg:rect")
           .attr("x", BoardView.xScale(i))
@@ -74,7 +74,7 @@ class BoardView
   draw_board: () ->
     @draw_grid()
     pieces =  @svg.selectAll(".piece")
-      .data(@board.pieces, (piece) -> return piece.id)
+      .data(@board.model.pieces, (piece) -> return piece.id)
     pieces
      .enter()
      .append("svg:image")
@@ -100,16 +100,19 @@ class Board
     if !@board?
       @setup()
 
+  set_view: (@view) ->
+
   reset: () ->
-    @board = []
-    @pieces = []
-    @captured_blacks = []
-    @captured_whites = []
-    @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
+    @model = {}
+    @model.board = []
+    @model.pieces = []
+    @model.captured_blacks = []
+    @model.captured_whites = []
+    @model.board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
   add_piece: (piece, pos) ->
-    @pieces.push(piece)
-    @board[pos[0]][pos[1]] = piece
+    @model.pieces.push(piece)
+    @model.board[pos[0]][pos[1]] = piece
 
   setup: () ->
     @reset()
@@ -137,19 +140,20 @@ class Board
       @add_piece(new Piece("black", "pawn"), [i, 6])
 
   at: (pos) ->
-    return @board[pos[0]][pos[1]]
+    return @model.board[pos[0]][pos[1]]
 
   position_of: (piece) ->
     for i in [0..7]
       for j in [0..7]
-        if @board[i][j] and @board[i][j] is piece
+        if @model.board[i][j] and @model.board[i][j] is piece
           return [i, j]
 
   move: (start_pos, end_pos) ->
     @capture(end_pos)
     piece = @at(start_pos)
-    @board[start_pos[0]][start_pos[1]] = null
-    @board[end_pos[0]][end_pos[1]] = piece
+    @model.board[start_pos[0]][start_pos[1]] = null
+    @model.board[end_pos[0]][end_pos[1]] = piece
+    @view.update()
 
   capture: (pos) ->
     piece = @at(pos)
@@ -159,10 +163,12 @@ class Board
         @captured_whites.push(piece)
       else
         @captured_blacks.push(piece)
-    @board[pos[0]][pos[1]] = null
+    @model.board[pos[0]][pos[1]] = null
     return piece
 
 
 @board = new Board
-@board_view = new BoardView(board, "#chess", 500)
+board_view = new BoardView(board, "#chess", 500)
+@board.set_view(board_view)
+
 
