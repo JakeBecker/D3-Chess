@@ -25,14 +25,21 @@ class BoardView
 
   @xScale: d3.scale.linear()
     .domain([0, 8])
-    .rangeRound([0, BoardView.SIZE])
+    .rangeRound([0, BoardView.SIZE - 1])
 
   @yScale: d3.scale.linear()
     .domain([0, 8])
     .rangeRound([BoardView.SIZE - (BoardView.SIZE / 8), - (BoardView.SIZE / 8)])
 
+  @xReverseScale: d3.scale.linear()
+    .domain([0, BoardView.SIZE])
+    .rangeRound([0, 8])
+
+  @yReverseScale: d3.scale.linear()
+    .domain([BoardView.SIZE - (BoardView.SIZE / 8), - (BoardView.SIZE / 8)])
+    .rangeRound([0, 8])
+
   constructor: (@board, @parent, @size) ->
-    console.log(@size)
     @svg = d3.select(@parent).append("svg:svg")
       .attr("width", @size)
       .attr("height", @size)
@@ -73,6 +80,35 @@ class BoardView
 
   draw_board: () ->
     @draw_grid()
+
+    view = this
+    board = @board
+
+    drag = d3.behavior.drag()
+      .origin( (d) ->
+        pos = board.position_of(d)
+        return {
+          x: pos[0]
+          y: pos[1]
+        }
+      )
+      .on "drag", (d) ->
+        curX = parseInt(d3.select(this).attr("x"))
+        curY = parseInt(d3.select(this).attr("y"))
+        d3.select(this)
+          .attr("x", curX += d3.event.dx)
+          .attr("y", curY += d3.event.dy)
+    drag.on "dragend", (d) ->
+      elem = d3.select(this)
+      x = parseFloat(elem.attr("x"))
+      y = parseFloat(elem.attr("y"))
+      new_pos = [BoardView.xReverseScale(x), BoardView.yReverseScale(y)]
+      console.log(board.position_of(d))
+      console.log(new_pos)
+      board.move(board.position_of(d), new_pos)
+
+      view.update()
+
     pieces =  @svg.selectAll(".piece")
       .data(@board.model.pieces, (piece) -> return piece.id)
     pieces
@@ -91,6 +127,8 @@ class BoardView
      .attr("class", "piece")
      .attr("width", @size/8)
      .attr("height", @size/8)
+     .call(drag)
+
 
 
 
