@@ -19,8 +19,8 @@ class Piece
 
 
 class BoardView
-  @WHITE_SQUARE_COLOR = "#dddddd"
-  @BLACK_SQUARE_COLOR = "#222222"
+  @WHITE_SQUARE_COLOR = "rgb(240,218,176)"
+  @BLACK_SQUARE_COLOR = "rgb(180,137,92)"
   @SIZE = 500
 
   @xScale: d3.scale.linear()
