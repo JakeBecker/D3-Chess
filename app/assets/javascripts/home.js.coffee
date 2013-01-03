@@ -93,6 +93,8 @@ class BoardView
         }
       )
       .on "drag", (d) ->
+        if board.position_of(d) is null
+          return
         curX = parseInt(d3.select(this).attr("x"))
         curY = parseInt(d3.select(this).attr("y"))
         d3.select(this)
@@ -184,11 +186,14 @@ class Board
         if @model.board[i][j] and @model.board[i][j] is piece
           return [i, j]
 
+    return null
+
   move: (start_pos, end_pos) ->
-    @capture(end_pos)
-    piece = @at(start_pos)
-    @model.board[start_pos[0]][start_pos[1]] = null
-    @model.board[end_pos[0]][end_pos[1]] = piece
+    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1])
+      @capture(end_pos)
+      piece = @at(start_pos)
+      @model.board[start_pos[0]][start_pos[1]] = null
+      @model.board[end_pos[0]][end_pos[1]] = piece
     @view.update()
 
   capture: (pos) ->
