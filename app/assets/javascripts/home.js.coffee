@@ -92,6 +92,8 @@ class BoardView
           y: pos[1]
         }
       )
+      .on "dragstart", (d) ->
+        $(view.svg[0]).append(d3.select this)  # Move node to end so it's top layer
       .on "drag", (d) ->
         if board.position_of(d) is null
           return
