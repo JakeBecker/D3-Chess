@@ -72,5 +72,9 @@ module Chess
 
     # Version of your assets, change this if you want to expire all your assets
     config.assets.version = '1.0'
+
+    # (Jake) Add javascript file to be precompiled
+    #config.assets.precompile += ['chess_manifest.js']
+
   end
 end
