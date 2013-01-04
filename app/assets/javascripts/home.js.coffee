@@ -149,8 +149,6 @@ class Board
     @model ||= new BoardModel
     @setup()
 
-  set_view: (@view) ->
-
   add_piece: (piece, pos) ->
     @model.pieces.push(piece)
     @model.board[pos[0]][pos[1]] = piece
@@ -271,6 +269,6 @@ class Board
 
 @board = new Board
 board_view = new BoardView(board, "#chess", 500)
-@board.set_view(board_view)
+@board.view = board_view
 
 
