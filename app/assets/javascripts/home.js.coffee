@@ -134,32 +134,28 @@ class BoardView
      .call(drag)
 
 
+class BoardModel
+  constructor: () ->
+    @board = []
+    @pieces = []
+    @captured_blacks = []
+    @captured_whites = []
+    @history = []
+    @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
 
 class Board
-  constructor: (model) ->
-    @model = model
-    if !@model?
-      @setup()
+  constructor: (@model) ->
+    @model ||= new BoardModel
+    @setup()
 
   set_view: (@view) ->
-
-  reset: () ->
-    @model = {}
-    @model.board = []
-    @model.pieces = []
-    @model.captured_blacks = []
-    @model.captured_whites = []
-    @model.history = []
-    @model.board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
   add_piece: (piece, pos) ->
     @model.pieces.push(piece)
     @model.board[pos[0]][pos[1]] = piece
 
   setup: () ->
-    @reset()
-
     @add_piece(new Piece("white", "rook"), p "a1")
     @add_piece(new Piece("white", "knight"), p "b1")
     @add_piece(new Piece("white", "bishop"), p "c1")
@@ -260,54 +256,6 @@ class Board
         return true
 
     return false
-    ###
-    # Bounds check
-    if (start_pos[0] < 0 or start_pos[0] >= 8 or start_pos[1] < 0 or start_pos[1] >= 8 or
-        end_pos[0] < 0 or end_pos[0] >= 8 or end_pos[1] < 0 or end_pos[1] >= 8)
-      return false
-
-    piece = @at(start_pos)
-    dx = end_pos[0] - start_pos[0]
-    dy = end_pos[1] - start_pos[1]
-    xDir = dx && dx / Math.abs(dx)
-    yDir = dy && dy / Math.abs(dy)
-
-    # Never legal to capture your own piece
-    if @at(end_pos)? and @at(end_pos).color == piece.color
-      return false
-
-    switch piece.type
-      when "knight"
-        return (Math.abs(dx) == 2 && Math.abs(dy) == 1) or (Math.abs(dx) == 1 and Math.abs(dy) == 2)
-
-      when "rook"
-        if dx is not 0 and dy is not 0
-          return false
-
-        path = []
-        i = start_pos[0] + xDir
-        j = start_pos[1] + yDir
-        while not (i == end_pos[0] and j == end_pos[1])
-          path.push [i,j]
-          i += xDir
-          j += yDir
-        return @path_is_empty(path)
-
-      when "bishop"
-        if Math.abs(dx) != Math.abs(dy)
-          return false
-
-        path = []
-        i = start_pos[0] + xDir
-        j = start_pos[1] + yDir
-        while not (i == end_pos[0] and j == end_pos[1])
-          path.push [i,j]
-          i += xDir
-          j += yDir
-        return @path_is_empty(path)
-
-      else return true
-###
 
   capture: (pos) ->
     piece = @at(pos)
