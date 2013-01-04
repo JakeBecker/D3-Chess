@@ -145,6 +145,7 @@ class BoardModel
     @white_can_castle_queen_side = true
     @black_can_castle_king_side = true
     @black_can_castle_queen_side = true
+    @vulnerable_to_en_passant = null
     @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
 
@@ -262,6 +263,9 @@ class Board
     attack_dir = if piece.color == "white" then 1 else -1
     if @at([pos[0], pos[1] + attack_dir]) is null
       possible.push([pos[0], pos[1] + attack_dir])
+      if (piece.color is "white" and pos[1] == 1) or (piece.color is "black" and pos[1] == 6)
+        if @at([pos[0], pos[1] + 2 * attack_dir]) is null
+          possible.push([pos[0], pos[1] + 2 * attack_dir])
     attackable_positions = [ [pos[0] - 1, pos[1] + attack_dir], [pos[0] + 1, pos[1] + attack_dir] ]
     for attackable in attackable_positions
       if @at(attackable)? and @at(attackable).color != piece.color
