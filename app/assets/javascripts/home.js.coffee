@@ -137,9 +137,9 @@ class BoardView
 
 
 class Board
-  constructor: (board_data) ->
-    @board = board_data
-    if !@board?
+  constructor: (model) ->
+    @model = model
+    if !@model?
       @setup()
 
   set_view: (@view) ->
@@ -150,6 +150,7 @@ class Board
     @model.pieces = []
     @model.captured_blacks = []
     @model.captured_whites = []
+    @model.history = []
     @model.board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
   add_piece: (piece, pos) ->
@@ -182,6 +183,8 @@ class Board
       @add_piece(new Piece("black", "pawn"), [i, 6])
 
   at: (pos) ->
+    if pos[0] < 0 or pos[0] >= 8 or pos[1] < 0 or pos[1] >= 8
+      return undefined
     return @model.board[pos[0]][pos[1]]
 
   position_of: (piece) ->
@@ -193,7 +196,6 @@ class Board
     return null
 
   move: (start_pos, end_pos) ->
-    console.log @is_legal(start_pos, end_pos)
     if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
       @capture(end_pos)
       piece = @at(start_pos)
@@ -203,13 +205,67 @@ class Board
 
   path_is_empty: (path) ->
     for pos in path
-      console.log(pos)
-      console.log(@at(pos))
       if @at(pos) != null
         return false
     return true
 
+  legal_moves_for: (pos) ->
+    piece = @at(pos)
+    possible = []
+    if piece.type == "rook" or piece.type == "bishop" or piece.type == "queen"
+      switch piece.type
+        when "rook"
+          deltas =  [ [-1, 0], [1, 0], [0, 1], [0, -1] ]
+        when "bishop"
+          deltas =  [ [-1, -1], [-1, 1], [1, -1], [1, 1] ]
+        when "queen"
+          deltas = [ [-1, 0], [1, 0], [0, 1], [0, -1], [-1, -1], [-1, 1], [1, -1], [1, 1] ]
+      for delta in deltas
+        dx = delta[0]
+        dy = delta[1]
+        cur_pos = [pos[0] + dx, pos[1] + dy]
+        while @at(cur_pos) is null
+          possible.push(cur_pos)
+          cur_pos = [cur_pos[0] + dx, cur_pos[1] + dy]
+        if @at(cur_pos)? and @at(cur_pos).color != piece.color
+          possible.push(cur_pos)
+      return possible
+
+    if piece.type is "knight"
+        moves = [ [1,2], [-1,2], [1, -2], [-1, -2], [2, 1], [-2, 1], [2, -1], [-2, -1]]
+    if piece.type is "king"
+        moves = [ [-1,-1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1,1] ]
+    if piece.type is "king" or piece.type is "knight"
+      for move in moves
+        new_pos = [pos[0] + move[0], pos[1] + move[1]]
+        if @at(new_pos) is null or (@at(new_pos)? and @at(new_pos).color != @at(pos).color)
+          possible.push(new_pos)
+      return possible
+
+    # If it's a pawn...
+    attack_dir = if piece.color == "white" then 1 else -1
+    if @at([pos[0], pos[1] + attack_dir]) is null
+      possible.push([pos[0], pos[1] + attack_dir])
+    attackable_positions = [ [pos[0] - 1, pos[1] + attack_dir], [pos[0] + 1, pos[1] + attack_dir] ]
+    for attackable in attackable_positions
+      if @at(attackable)? and @at(attackable).color != piece.color
+        possible.push(attackable)
+
+    return possible
+
+
   is_legal: (start_pos, end_pos) ->
+    for legal_end_pos in @legal_moves_for(start_pos)
+      if end_pos[0] == legal_end_pos[0] and end_pos[1] == legal_end_pos[1]
+        return true
+
+    return false
+    ###
+    # Bounds check
+    if (start_pos[0] < 0 or start_pos[0] >= 8 or start_pos[1] < 0 or start_pos[1] >= 8 or
+        end_pos[0] < 0 or end_pos[0] >= 8 or end_pos[1] < 0 or end_pos[1] >= 8)
+      return false
+
     piece = @at(start_pos)
     dx = end_pos[0] - start_pos[0]
     dy = end_pos[1] - start_pos[1]
@@ -251,6 +307,7 @@ class Board
         return @path_is_empty(path)
 
       else return true
+###
 
   capture: (pos) ->
     piece = @at(pos)
