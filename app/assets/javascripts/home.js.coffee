@@ -141,6 +141,10 @@ class BoardModel
     @captured_blacks = []
     @captured_whites = []
     @history = []
+    @white_can_castle_king_side = true
+    @white_can_castle_queen_side = true
+    @black_can_castle_king_side = true
+    @black_can_castle_queen_side = true
     @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
 
@@ -191,8 +195,26 @@ class Board
 
   move: (start_pos, end_pos) ->
     if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
-      @capture(end_pos)
       piece = @at(start_pos)
+
+      if piece.type is "king"
+        if piece.color is "white"
+          @model.white_can_castle_king_side = false
+          @model.white_can_castle_queen_side = false
+        if piece.color is "white"
+          @model.black_can_castle_king_side = false
+          @model.black_can_castle_queen_side = false
+
+      if start_pos[0] == 0 and start_pos[1] == 0
+        @model.white_can_castle_queen_side = false
+      if start_pos[0] == 0 and start_pos[1] == 0
+        @model.white_can_castle_king_side = false
+      if start_pos[0] == 0 and start_pos[1] == 7
+        @model.black_can_castle_queen_side = false
+      if start_pos[0] == 7 and start_pos[1] == 7
+        @model.black_can_castle_king_side = false
+
+      @capture(end_pos)
       @model.board[start_pos[0]][start_pos[1]] = null
       @model.board[end_pos[0]][end_pos[1]] = piece
     @view.update()
