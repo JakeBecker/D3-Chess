@@ -82,6 +82,22 @@ class BoardView
           .attr("height", @size/8)
           .attr("fill", color)
 
+  draw_threatened_positions: () ->
+    threatened = if @board.model.active_player is "white" then @board.model.threatened_by_black else @board.model.threatened_by_white
+    @svg.selectAll(".threat_marker")
+      .data(threatened)
+      .enter()
+      .append("svg:rect")
+      .attr("class", "threat_marker")
+      .attr("x", (d) ->
+        BoardView.xScale(d[0])
+      ).attr("y", (d) ->
+        BoardView.xScale(d[1])
+      ).attr("width", @size/8)
+      .attr("height", @size/8)
+      .attr("fill", "red")
+      .attr("opacity", 0.3)
+
   draw_board: () ->
     @draw_grid()
 
@@ -238,13 +254,25 @@ class Board
       @model.board[end_pos[0]][end_pos[1]] = piece
 
       @model.active_player = if piece.color is "white" then "black" else "white"
+      @find_threatened_positions()
     @view.update()
+    @view.draw_threatened_positions()
 
   path_is_empty: (path) ->
     for pos in path
       if @at(pos) != null
         return false
     return true
+
+  find_threatened_positions: () ->
+    @model.threatened_by_white = []
+    @model.threatened_by_black = []
+    for piece in @model.pieces
+      threatens = @legal_moves_for @position_of(piece)
+      if piece.color is "white"
+        @model.threatened_by_white = @model.threatened_by_white.concat threatens
+      else
+        @model.threatened_by_black = @model.threatened_by_black.concat threatens
 
   legal_moves_for: (pos) ->
     piece = @at(pos)
@@ -269,9 +297,9 @@ class Board
       return possible
 
     if piece.type is "knight"
-        moves = [ [1,2], [-1,2], [1, -2], [-1, -2], [2, 1], [-2, 1], [2, -1], [-2, -1]]
+      moves = [ [1,2], [-1,2], [1, -2], [-1, -2], [2, 1], [-2, 1], [2, -1], [-2, -1]]
     if piece.type is "king"
-        moves = [ [-1,-1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1,1] ]
+      moves = [ [-1,-1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1,1] ]
     if piece.type is "king" or piece.type is "knight"
       for move in moves
         new_pos = [pos[0] + move[0], pos[1] + move[1]]
