@@ -12,6 +12,10 @@
     console.error("Invalid location " + str)
   return [column, row]
 
+@pos_equal = (a, b) ->
+  if not a? or not b?
+    return false
+  return a[0] == b[0] and a[1] == b[1]
 
 class Piece
   constructor: (@color, @type) ->
@@ -146,6 +150,7 @@ class BoardModel
     @black_can_castle_king_side = true
     @black_can_castle_queen_side = true
     @vulnerable_to_en_passant = null
+    @active_player = "white"
     @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
 
 
@@ -198,6 +203,12 @@ class Board
     if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
       piece = @at(start_pos)
 
+      # Is this move an en-passant capture?
+      if pos_equal(end_pos, @model.vulnerable_to_en_passant)
+        attack_dir = if piece.color is "white" then 1 else -1
+        @capture [end_pos[0], end_pos[1] - attack_dir]
+
+      # Keep track of whether we can castle
       if piece.type is "king"
         if piece.color is "white"
           @model.white_can_castle_king_side = false
@@ -215,9 +226,18 @@ class Board
       if start_pos[0] == 7 and start_pos[1] == 7
         @model.black_can_castle_king_side = false
 
+      # Keep track of whether there's a square that can be attacked via en passant
+      dy = end_pos[1] - start_pos[1]
+      if piece.type is "pawn" and Math.abs(dy) == 2
+        @model.vulnerable_to_en_passant = [start_pos[0], start_pos[1] + dy / 2]
+      else
+        @model.vulnerable_to_en_passant = null
+
       @capture(end_pos)
       @model.board[start_pos[0]][start_pos[1]] = null
       @model.board[end_pos[0]][end_pos[1]] = piece
+
+      @model.active_player = if piece.color is "white" then "black" else "white"
     @view.update()
 
   path_is_empty: (path) ->
@@ -268,8 +288,16 @@ class Board
           possible.push([pos[0], pos[1] + 2 * attack_dir])
     attackable_positions = [ [pos[0] - 1, pos[1] + attack_dir], [pos[0] + 1, pos[1] + attack_dir] ]
     for attackable in attackable_positions
-      if @at(attackable)? and @at(attackable).color != piece.color
+      if (@at(attackable)? and @at(attackable).color != piece.color)
         possible.push(attackable)
+
+    # En passant
+    if @model.vulnerable_to_en_passant?
+      pawn = @at([@model.vulnerable_to_en_passant[0], @model.vulnerable_to_en_passant[1] - attack_dir])
+      if pawn? and pawn.color != piece.color
+        for attackable in attackable_positions
+          if pos_equal(attackable, @model.vulnerable_to_en_passant)
+            possible.push(attackable)
 
     return possible
 
