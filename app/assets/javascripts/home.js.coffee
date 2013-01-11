@@ -63,11 +63,11 @@ class BoardView
     pieces
       .transition()
       .attr("x", (piece) ->
-        pos = board.position_of(piece)
+        pos = board.model.position_of(piece)
         return BoardView.xScale(pos[0])
       )
       .attr("y", (piece) ->
-        pos = board.position_of(piece)
+        pos = board.model.position_of(piece)
         return BoardView.yScale(pos[1])
       )
 
@@ -90,7 +90,7 @@ class BoardView
 
     drag = d3.behavior.drag()
       .origin( (d) ->
-        pos = board.position_of(d)
+        pos = board.model.position_of(d)
         return {
           x: pos[0]
           y: pos[1]
@@ -101,7 +101,7 @@ class BoardView
         $svg = $(view.svg[0])
         $svg.append(d3.select this)  # Move node to end so it's top layer.
       .on "drag", (d) ->
-        if board.position_of(d) is null
+        if board.model.position_of(d) is null
           return
         curX = parseInt(d3.select(this).attr("x"))
         curY = parseInt(d3.select(this).attr("y"))
@@ -113,7 +113,7 @@ class BoardView
       x = parseFloat(elem.attr("x"))
       y = parseFloat(elem.attr("y"))
       new_pos = [BoardView.xReverseScale(x), BoardView.yReverseScale(y)]
-      board.move(board.position_of(d), new_pos)
+      board.attempt_player_move(board.model.position_of(d), new_pos)
 
       view.update()
 
@@ -125,11 +125,11 @@ class BoardView
      .attr("xlink:href", (piece) ->
        "assets/" + piece.color + "-" + piece.type + ".svg")
      .attr("x", (piece) ->
-       pos = board.position_of(piece)
+       pos = board.model.position_of(piece)
        return BoardView.xScale(pos[0])
      )
      .attr("y", (piece) ->
-       pos = board.position_of(piece)
+       pos = board.model.position_of(piece)
        return BoardView.yScale(pos[1])
      )
      .attr("class", "piece")
@@ -157,15 +157,19 @@ class BoardModel
       @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
       @setup()
 
+  add_piece: (piece, pos) ->
+    @pieces.push(piece)
+    @board[pos[0]][pos[1]] = piece
+
   at: (pos) ->
     if pos[0] < 0 or pos[0] >= 8 or pos[1] < 0 or pos[1] >= 8
       return undefined
-    return @model.board[pos[0]][pos[1]]
+    return @board[pos[0]][pos[1]]
 
   position_of: (piece) ->
     for i in [0..7]
       for j in [0..7]
-        if @model.board[i][j] and @model.board[i][j] is piece
+        if @board[i][j] and @board[i][j] is piece
           return [i, j]
 
     return null
@@ -246,8 +250,8 @@ class BoardModel
         possible.push(attackable)
 
     # En passant
-    if model.vulnerable_to_en_passant?
-      pawn = @at([model.vulnerable_to_en_passant[0], model.vulnerable_to_en_passant[1] - attack_dir])
+    if @vulnerable_to_en_passant?
+      pawn = @at([@vulnerable_to_en_passant[0], @vulnerable_to_en_passant[1] - attack_dir])
       if pawn? and pawn.color != piece.color
         for attackable in attackable_positions
           if pos_equal(attackable, model.vulnerable_to_en_passant)
@@ -267,7 +271,7 @@ class BoardModel
     # Did this put the player in check?
     test_board = new BoardModel(@model)
 
-    return false
+    return true
 
   is_in_check: (color, model=@model) ->
     ###
@@ -279,12 +283,12 @@ class BoardModel
   capture: (pos) ->
     piece = @at(pos)
     if piece?
-      @model.pieces.splice(@model.pieces.indexOf(piece), 1);
+      @pieces.splice(@pieces.indexOf(piece), 1);
       if piece.color == "white"
-        @model.captured_whites.push(piece)
+        @captured_whites.push(piece)
       else
-        @model.captured_blacks.push(piece)
-    @model.board[pos[0]][pos[1]] = null
+        @captured_blacks.push(piece)
+    @board[pos[0]][pos[1]] = null
     return piece
 
 
@@ -292,8 +296,8 @@ class Board
   constructor: (@model = new BoardModel) ->
 
   attempt_player_move: (start_pos, end_pos) ->
-    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
-      piece = @at(start_pos)
+    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @model.is_legal(start_pos, end_pos)
+      piece = @model.at(start_pos)
 
       # Is this move an en-passant capture?
       if pos_equal(end_pos, @model.vulnerable_to_en_passant)
