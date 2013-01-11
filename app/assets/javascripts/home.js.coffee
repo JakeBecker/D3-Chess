@@ -82,22 +82,6 @@ class BoardView
           .attr("height", @size/8)
           .attr("fill", color)
 
-  draw_threatened_positions: () ->
-    threatened = if @board.model.active_player is "white" then @board.model.threatened_by_black else @board.model.threatened_by_white
-    @svg.selectAll(".threat_marker")
-      .data(threatened)
-      .enter()
-      .append("svg:rect")
-      .attr("class", "threat_marker")
-      .attr("x", (d) ->
-        BoardView.xScale(d[0])
-      ).attr("y", (d) ->
-        BoardView.xScale(d[1])
-      ).attr("width", @size/8)
-      .attr("height", @size/8)
-      .attr("fill", "red")
-      .attr("opacity", 0.3)
-
   draw_board: () ->
     @draw_grid()
 
@@ -155,29 +139,36 @@ class BoardView
 
 
 class BoardModel
-  constructor: () ->
-    @board = []
-    @pieces = []
-    @captured_blacks = []
-    @captured_whites = []
-    @history = []
-    @white_can_castle_king_side = true
-    @white_can_castle_queen_side = true
-    @black_can_castle_king_side = true
-    @black_can_castle_queen_side = true
-    @vulnerable_to_en_passant = null
-    @active_player = "white"
-    @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
+  constructor: (to_copy) ->
+    if to_copy?
+      jQuery.extend(true, this, to_copy);
+    else
+      @board = []
+      @pieces = []
+      @captured_blacks = []
+      @captured_whites = []
+      @history = []
+      @white_can_castle_king_side = true
+      @white_can_castle_queen_side = true
+      @black_can_castle_king_side = true
+      @black_can_castle_queen_side = true
+      @vulnerable_to_en_passant = null
+      @active_player = "white"
+      @board.push([null, null, null, null, null, null, null, null]) for i in [1..8]
+      @setup()
 
+  at: (pos) ->
+    if pos[0] < 0 or pos[0] >= 8 or pos[1] < 0 or pos[1] >= 8
+      return undefined
+    return @model.board[pos[0]][pos[1]]
 
-class Board
-  constructor: (@model) ->
-    @model ||= new BoardModel
-    @setup()
+  position_of: (piece) ->
+    for i in [0..7]
+      for j in [0..7]
+        if @model.board[i][j] and @model.board[i][j] is piece
+          return [i, j]
 
-  add_piece: (piece, pos) ->
-    @model.pieces.push(piece)
-    @model.board[pos[0]][pos[1]] = piece
+    return null
 
   setup: () ->
     @add_piece(new Piece("white", "rook"), p "a1")
@@ -202,79 +193,14 @@ class Board
       @add_piece(new Piece("white", "pawn"), [i, 1])
       @add_piece(new Piece("black", "pawn"), [i, 6])
 
-  at: (pos) ->
-    if pos[0] < 0 or pos[0] >= 8 or pos[1] < 0 or pos[1] >= 8
-      return undefined
-    return @model.board[pos[0]][pos[1]]
-
-  position_of: (piece) ->
-    for i in [0..7]
-      for j in [0..7]
-        if @model.board[i][j] and @model.board[i][j] is piece
-          return [i, j]
-
-    return null
-
-  move: (start_pos, end_pos) ->
-    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
-      piece = @at(start_pos)
-
-      # Is this move an en-passant capture?
-      if pos_equal(end_pos, @model.vulnerable_to_en_passant)
-        attack_dir = if piece.color is "white" then 1 else -1
-        @capture [end_pos[0], end_pos[1] - attack_dir]
-
-      # Keep track of whether we can castle
-      if piece.type is "king"
-        if piece.color is "white"
-          @model.white_can_castle_king_side = false
-          @model.white_can_castle_queen_side = false
-        if piece.color is "white"
-          @model.black_can_castle_king_side = false
-          @model.black_can_castle_queen_side = false
-
-      if start_pos[0] == 0 and start_pos[1] == 0
-        @model.white_can_castle_queen_side = false
-      if start_pos[0] == 0 and start_pos[1] == 0
-        @model.white_can_castle_king_side = false
-      if start_pos[0] == 0 and start_pos[1] == 7
-        @model.black_can_castle_queen_side = false
-      if start_pos[0] == 7 and start_pos[1] == 7
-        @model.black_can_castle_king_side = false
-
-      # Keep track of whether there's a square that can be attacked via en passant
-      dy = end_pos[1] - start_pos[1]
-      if piece.type is "pawn" and Math.abs(dy) == 2
-        @model.vulnerable_to_en_passant = [start_pos[0], start_pos[1] + dy / 2]
-      else
-        @model.vulnerable_to_en_passant = null
-
-      @capture(end_pos)
-      @model.board[start_pos[0]][start_pos[1]] = null
-      @model.board[end_pos[0]][end_pos[1]] = piece
-
-      @model.active_player = if piece.color is "white" then "black" else "white"
-      @find_threatened_positions()
-    @view.update()
-    @view.draw_threatened_positions()
-
   path_is_empty: (path) ->
     for pos in path
       if @at(pos) != null
         return false
     return true
 
-  find_threatened_positions: () ->
-    @model.threatened_by_white = []
-    @model.threatened_by_black = []
-    for piece in @model.pieces
-      threatens = @legal_moves_for @position_of(piece)
-      if piece.color is "white"
-        @model.threatened_by_white = @model.threatened_by_white.concat threatens
-      else
-        @model.threatened_by_black = @model.threatened_by_black.concat threatens
-
-  legal_moves_for: (pos) ->
+  # Does not consider whether a move puts the player in check
+  moves_for: (pos, model=@model) ->
     piece = @at(pos)
     possible = []
     if piece.type == "rook" or piece.type == "bishop" or piece.type == "queen"
@@ -320,22 +246,35 @@ class Board
         possible.push(attackable)
 
     # En passant
-    if @model.vulnerable_to_en_passant?
-      pawn = @at([@model.vulnerable_to_en_passant[0], @model.vulnerable_to_en_passant[1] - attack_dir])
+    if model.vulnerable_to_en_passant?
+      pawn = @at([model.vulnerable_to_en_passant[0], model.vulnerable_to_en_passant[1] - attack_dir])
       if pawn? and pawn.color != piece.color
         for attackable in attackable_positions
-          if pos_equal(attackable, @model.vulnerable_to_en_passant)
+          if pos_equal(attackable, model.vulnerable_to_en_passant)
             possible.push(attackable)
 
     return possible
 
 
   is_legal: (start_pos, end_pos) ->
-    for legal_end_pos in @legal_moves_for(start_pos)
-      if end_pos[0] == legal_end_pos[0] and end_pos[1] == legal_end_pos[1]
-        return true
+    legal = false
+    for possible_end_pos in @moves_for(start_pos)
+      if pos_equal(possible_end_pos, end_pos)
+        legal = true
+    if not legal
+      return false
+
+    # Did this put the player in check?
+    test_board = new BoardModel(@model)
 
     return false
+
+  is_in_check: (color, model=@model) ->
+    ###
+    for piece in model.pieces
+      if piece.color != color
+        for pos in moves_for()
+###
 
   capture: (pos) ->
     piece = @at(pos)
@@ -347,6 +286,52 @@ class Board
         @model.captured_blacks.push(piece)
     @model.board[pos[0]][pos[1]] = null
     return piece
+
+
+class Board
+  constructor: (@model = new BoardModel) ->
+
+  attempt_player_move: (start_pos, end_pos) ->
+    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @is_legal(start_pos, end_pos)
+      piece = @at(start_pos)
+
+      # Is this move an en-passant capture?
+      if pos_equal(end_pos, @model.vulnerable_to_en_passant)
+        attack_dir = if piece.color is "white" then 1 else -1
+        @capture [end_pos[0], end_pos[1] - attack_dir]
+
+      # Keep track of whether we can castle
+      if piece.type is "king"
+        if piece.color is "white"
+          @model.white_can_castle_king_side = false
+          @model.white_can_castle_queen_side = false
+        if piece.color is "white"
+          @model.black_can_castle_king_side = false
+          @model.black_can_castle_queen_side = false
+
+      if start_pos[0] == 0 and start_pos[1] == 0
+        @model.white_can_castle_queen_side = false
+      if start_pos[0] == 0 and start_pos[1] == 0
+        @model.white_can_castle_king_side = false
+      if start_pos[0] == 0 and start_pos[1] == 7
+        @model.black_can_castle_queen_side = false
+      if start_pos[0] == 7 and start_pos[1] == 7
+        @model.black_can_castle_king_side = false
+
+      # Keep track of whether there's a square that can be attacked via en passant
+      dy = end_pos[1] - start_pos[1]
+      if piece.type is "pawn" and Math.abs(dy) == 2
+        @model.vulnerable_to_en_passant = [start_pos[0], start_pos[1] + dy / 2]
+      else
+        @model.vulnerable_to_en_passant = null
+
+      @model.capture(end_pos)
+      @model.board[start_pos[0]][start_pos[1]] = null
+      @model.board[end_pos[0]][end_pos[1]] = piece
+
+      @model.active_player = if piece.color is "white" then "black" else "white"
+    @view.update()
+
 
 
 @board = new Board
