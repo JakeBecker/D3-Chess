@@ -174,6 +174,46 @@ class BoardModel
 
     return null
 
+  # Does not check for legality. Does perform captures, castling, etc.
+  perform_move: (start_pos, end_pos) ->
+    piece = @at(start_pos)
+
+    # Is this move an en-passant capture?
+    if pos_equal(end_pos, @vulnerable_to_en_passant)
+      attack_dir = if piece.color is "white" then 1 else -1
+      @capture [end_pos[0], end_pos[1] - attack_dir]
+
+    # Keep track of whether we can castle
+    if piece.type is "king"
+      if piece.color is "white"
+        @white_can_castle_king_side = false
+        @white_can_castle_queen_side = false
+      if piece.color is "white"
+        @black_can_castle_king_side = false
+        @black_can_castle_queen_side = false
+
+    if start_pos[0] == 0 and start_pos[1] == 0
+      @white_can_castle_queen_side = false
+    if start_pos[0] == 0 and start_pos[1] == 0
+      @white_can_castle_king_side = false
+    if start_pos[0] == 0 and start_pos[1] == 7
+      @black_can_castle_queen_side = false
+    if start_pos[0] == 7 and start_pos[1] == 7
+      @model.black_can_castle_king_side = false
+
+    # Keep track of whether there's a square that can be attacked via en passant
+    dy = end_pos[1] - start_pos[1]
+    if piece.type is "pawn" and Math.abs(dy) == 2
+      @vulnerable_to_en_passant = [start_pos[0], start_pos[1] + dy / 2]
+    else
+      @vulnerable_to_en_passant = null
+
+    @capture(end_pos)
+    @board[start_pos[0]][start_pos[1]] = null
+    @board[end_pos[0]][end_pos[1]] = piece
+
+    @active_player = if piece.color is "white" then "black" else "white"
+
   setup: () ->
     @add_piece(new Piece("white", "rook"), p "a1")
     @add_piece(new Piece("white", "knight"), p "b1")
@@ -204,7 +244,7 @@ class BoardModel
     return true
 
   # Does not consider whether a move puts the player in check
-  moves_for: (pos, model=@model) ->
+  moves_for: (pos) ->
     piece = @at(pos)
     possible = []
     if piece.type == "rook" or piece.type == "bishop" or piece.type == "queen"
@@ -254,31 +294,46 @@ class BoardModel
       pawn = @at([@vulnerable_to_en_passant[0], @vulnerable_to_en_passant[1] - attack_dir])
       if pawn? and pawn.color != piece.color
         for attackable in attackable_positions
-          if pos_equal(attackable, model.vulnerable_to_en_passant)
+          if pos_equal(attackable, @vulnerable_to_en_passant)
             possible.push(attackable)
 
     return possible
 
 
   is_legal: (start_pos, end_pos) ->
+    piece = @at(start_pos)
+
     legal = false
     for possible_end_pos in @moves_for(start_pos)
       if pos_equal(possible_end_pos, end_pos)
         legal = true
+        break
     if not legal
       return false
 
     # Did this put the player in check?
-    test_board = new BoardModel(@model)
+    test_model = new BoardModel(this)
+    test_model.perform_move(start_pos, end_pos)
+    if test_model.is_in_check(piece.color)
+      return false
+    else
+      return true
 
-    return true
+  get_piece: (color, type) ->
+    for piece in @pieces
+      if piece.color == color and piece.type == type
+        return piece
+    return null
 
-  is_in_check: (color, model=@model) ->
-    ###
-    for piece in model.pieces
+  is_in_check: (color) ->
+    king = @get_piece(color, "king")
+    for piece in @pieces
       if piece.color != color
-        for pos in moves_for()
-###
+        for pos in @moves_for(@position_of(piece))
+          if pos_equal(pos, @position_of(king))
+            console.log(color + " is in check!")
+            return true
+    return false
 
   capture: (pos) ->
     piece = @at(pos)
@@ -296,47 +351,9 @@ class Board
   constructor: (@model = new BoardModel) ->
 
   attempt_player_move: (start_pos, end_pos) ->
-    if (start_pos[0] != end_pos[0] || start_pos[1] != end_pos[1]) && @model.is_legal(start_pos, end_pos)
-      piece = @model.at(start_pos)
-
-      # Is this move an en-passant capture?
-      if pos_equal(end_pos, @model.vulnerable_to_en_passant)
-        attack_dir = if piece.color is "white" then 1 else -1
-        @capture [end_pos[0], end_pos[1] - attack_dir]
-
-      # Keep track of whether we can castle
-      if piece.type is "king"
-        if piece.color is "white"
-          @model.white_can_castle_king_side = false
-          @model.white_can_castle_queen_side = false
-        if piece.color is "white"
-          @model.black_can_castle_king_side = false
-          @model.black_can_castle_queen_side = false
-
-      if start_pos[0] == 0 and start_pos[1] == 0
-        @model.white_can_castle_queen_side = false
-      if start_pos[0] == 0 and start_pos[1] == 0
-        @model.white_can_castle_king_side = false
-      if start_pos[0] == 0 and start_pos[1] == 7
-        @model.black_can_castle_queen_side = false
-      if start_pos[0] == 7 and start_pos[1] == 7
-        @model.black_can_castle_king_side = false
-
-      # Keep track of whether there's a square that can be attacked via en passant
-      dy = end_pos[1] - start_pos[1]
-      if piece.type is "pawn" and Math.abs(dy) == 2
-        @model.vulnerable_to_en_passant = [start_pos[0], start_pos[1] + dy / 2]
-      else
-        @model.vulnerable_to_en_passant = null
-
-      @model.capture(end_pos)
-      @model.board[start_pos[0]][start_pos[1]] = null
-      @model.board[end_pos[0]][end_pos[1]] = piece
-
-      @model.active_player = if piece.color is "white" then "black" else "white"
+    if not pos_equal(start_pos, end_pos) and @model.is_legal(start_pos, end_pos)
+      @model.perform_move(start_pos, end_pos)
     @view.update()
-
-
 
 @board = new Board
 board_view = new BoardView(board, "#chess", 500)
