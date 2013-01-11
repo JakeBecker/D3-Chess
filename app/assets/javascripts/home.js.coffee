@@ -176,6 +176,9 @@ class BoardModel
 
   # Does not check for legality. Does perform captures, castling, etc.
   perform_move: (start_pos, end_pos) ->
+    if @at(start_pos) is null or pos_equal(start_pos, end_pos)
+      return
+
     piece = @at(start_pos)
 
     # Is this move an en-passant capture?
@@ -183,12 +186,23 @@ class BoardModel
       attack_dir = if piece.color is "white" then 1 else -1
       @capture [end_pos[0], end_pos[1] - attack_dir]
 
-    # Keep track of whether we can castle
     if piece.type is "king"
+      # Are we castling currently?
+      if Math.abs(end_pos[0] - start_pos[0]) > 1
+        dir = (end_pos[0] - start_pos[0]) / Math.abs(end_pos[0] - start_pos[0])
+        row = start_pos[1]
+        if end_pos[0] == 2
+          @board[3][row] = @board[0][row]
+          @board[0][row] = null
+        else
+          @board[5][row] = @board[7][row]
+          @board[7][row] = null
+
+      # Keep track of whether we can castle
       if piece.color is "white"
         @white_can_castle_king_side = false
         @white_can_castle_queen_side = false
-      if piece.color is "white"
+      if piece.color is "black"
         @black_can_castle_king_side = false
         @black_can_castle_queen_side = false
 
@@ -199,7 +213,7 @@ class BoardModel
     if start_pos[0] == 0 and start_pos[1] == 7
       @black_can_castle_queen_side = false
     if start_pos[0] == 7 and start_pos[1] == 7
-      @model.black_can_castle_king_side = false
+      @black_can_castle_king_side = false
 
     # Keep track of whether there's a square that can be attacked via en passant
     dy = end_pos[1] - start_pos[1]
@@ -270,6 +284,19 @@ class BoardModel
       moves = [ [1,2], [-1,2], [1, -2], [-1, -2], [2, 1], [-2, 1], [2, -1], [-2, -1]]
     if piece.type is "king"
       moves = [ [-1,-1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1,1] ]
+
+      # Castling
+      if piece.color is "white"
+        if @white_can_castle_king_side
+          possible.push([6,0])
+        if @white_can_castle_queen_side
+          possible.push([2,0])
+      else
+        if @black_can_castle_king_side
+          possible.push([6, 7])
+        if @black_can_castle_queen_side
+          possible.push([2, 7])
+
     if piece.type is "king" or piece.type is "knight"
       for move in moves
         new_pos = [pos[0] + move[0], pos[1] + move[1]]
@@ -311,13 +338,18 @@ class BoardModel
     if not legal
       return false
 
+    # Can't castle through or out of check
+    if piece.type is "king" and Math.abs(end_pos[0] - start_pos[0]) > 1
+      for x in [start_pos[0]..end_pos[0]]
+        test_model = new BoardModel(this)
+        test_model.perform_move(start_pos, [x, end_pos[1]])
+        if test_model.is_in_check(piece.color)
+          return false
+
     # Did this put the player in check?
     test_model = new BoardModel(this)
     test_model.perform_move(start_pos, end_pos)
-    if test_model.is_in_check(piece.color)
-      return false
-    else
-      return true
+    return not test_model.is_in_check(piece.color)
 
   get_piece: (color, type) ->
     for piece in @pieces
@@ -331,7 +363,6 @@ class BoardModel
       if piece.color != color
         for pos in @moves_for(@position_of(piece))
           if pos_equal(pos, @position_of(king))
-            console.log(color + " is in check!")
             return true
     return false
 
