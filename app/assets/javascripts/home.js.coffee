@@ -251,12 +251,6 @@ class BoardModel
       @add_piece(new Piece("white", "pawn"), [i, 1])
       @add_piece(new Piece("black", "pawn"), [i, 6])
 
-  path_is_empty: (path) ->
-    for pos in path
-      if @at(pos) != null
-        return false
-    return true
-
   # Does not consider whether a move puts the player in check
   moves_for: (pos) ->
     piece = @at(pos)
@@ -287,14 +281,14 @@ class BoardModel
 
       # Castling
       if piece.color is "white"
-        if @white_can_castle_king_side
+        if @white_can_castle_king_side and @at(p "f1") is null and @at(p "g1") is null
           possible.push([6,0])
-        if @white_can_castle_queen_side
+        if @white_can_castle_queen_side and @at(p "b1") is null and @at(p "c1") is null and @at(p "d1") is null
           possible.push([2,0])
       else
-        if @black_can_castle_king_side
+        if @black_can_castle_king_side and @at(p "f8") is null and @at(p "g8") is null
           possible.push([6, 7])
-        if @black_can_castle_queen_side
+        if @black_can_castle_queen_side and @at(p "b8") is null and @at(p "c8") is null and @at(p "d8") is null
           possible.push([2, 7])
 
     if piece.type is "king" or piece.type is "knight"
