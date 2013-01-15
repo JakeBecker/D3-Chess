@@ -1,6 +1,9 @@
 Chess
 ========================
 
+* All the interesting code is in /app/assets/javascripts/home.js.coffee *
+
+
 This application was generated with the rails_apps_composer gem:
 https://github.com/RailsApps/rails_apps_composer
 provided by the RailsApps Project:
